@@ -34,7 +34,7 @@ async def generate(engine: AsyncLLMEngine, prompts: list[str], max_tokens: list[
 
 async def main():
     args = parse_args()
-    #args.schedule_type = 'predscore'
+    args.schedule_type = 'predscore'
     args.enable_chunked_prefill = True
     engine = AsyncLLMEngine.from_engine_args(AsyncEngineArgs.from_cli_args(args)) #lower score first serve
     prompts = ["Hi" * 10 for _ in range(1024)]
