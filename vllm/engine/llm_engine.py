@@ -353,6 +353,7 @@ class LLMEngine:
         arrival_time: Optional[float] = None,
         lora_request: Optional[LoRARequest] = None,
         multi_modal_data: Optional[MultiModalData] = None,
+        score: Optional[float] = None,
     ) -> None:
         """Add a request to the engine's request pool.
 
@@ -434,6 +435,9 @@ class LLMEngine:
         seq_group = SequenceGroup(request_id, [seq], sampling_params,
                                   arrival_time, lora_request, multi_modal_data)
 
+        if score is not None:
+            seq_group.set_pred_score(score)
+            
         # Add the sequence group to the scheduler.
         self.scheduler.add_seq_group(seq_group)
 

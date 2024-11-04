@@ -251,6 +251,7 @@ class _AsyncLLMEngine(LLMEngine):
         arrival_time: Optional[float] = None,
         lora_request: Optional[LoRARequest] = None,
         multi_modal_data: Optional[MultiModalData] = None,
+        score: Optional[float] = None,
     ) -> None:
         if lora_request is not None and not self.lora_config:
             raise ValueError(f"Got lora_request {lora_request} but LoRA is "
@@ -269,7 +270,8 @@ class _AsyncLLMEngine(LLMEngine):
                                 sampling_params=sampling_params,
                                 arrival_time=arrival_time,
                                 lora_request=lora_request,
-                                multi_modal_data=multi_modal_data)
+                                multi_modal_data=multi_modal_data,
+                                score=score)
 
     async def check_health_async(self) -> None:
         self.model_executor.check_health()
@@ -506,6 +508,7 @@ class AsyncLLMEngine:
         arrival_time: Optional[float] = None,
         lora_request: Optional[LoRARequest] = None,
         multi_modal_data: Optional[MultiModalData] = None,
+        score: Optional[float] = None,
     ) -> AsyncStream:
         if self.log_requests:
             shortened_prompt = prompt
@@ -552,6 +555,7 @@ class AsyncLLMEngine:
         stream = self._request_tracker.add_request(
             request_id,
             prompt=prompt,
+            score=score,
             sampling_params=sampling_params,
             prompt_token_ids=prompt_token_ids,
             arrival_time=arrival_time,
@@ -568,7 +572,8 @@ class AsyncLLMEngine:
         request_id: str,
         prompt_token_ids: Optional[List[int]] = None,
         lora_request: Optional[LoRARequest] = None,
-        multi_modal_data: Optional[MultiModalData] = None
+        multi_modal_data: Optional[MultiModalData] = None,
+        score: Optional[float] = None,
     ) -> AsyncIterator[RequestOutput]:
         """Generate outputs for a request.
 
@@ -645,6 +650,7 @@ class AsyncLLMEngine:
                 arrival_time=arrival_time,
                 lora_request=lora_request,
                 multi_modal_data=multi_modal_data,
+                score=score,
             )
 
             async for request_output in stream:

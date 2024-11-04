@@ -327,6 +327,11 @@ class Scheduler:
             self._get_ordered_requests = self._get_opt_ordered_requests
             self._update_priority = self._update_opt_priority
             self.need_score = True
+        elif self.schedule_type.startswith("predscore"):
+            self._schedule = self._general_schedule
+            self._get_ordered_requests = self._get_pred_score_ordered_requests
+            self._update_priority = self._update_pred_score_priority
+            self.need_score = False    
         else:
             assert False, f"Not Supported Schedule Type {self.schedule_type}"
 
@@ -965,6 +970,13 @@ class Scheduler:
     def _update_rtpt_priority(self):
         pass
 
+    def _get_pred_score_ordered_requests(self):
+        #lower score first serve
+        ret = list(sorted(list(self.waiting) + list(self.running) + list(self.swapped), key=lambda req: req.pred_score))
+        return ret 
+    
+    def _update_pred_score_priority(self):
+        pass
    
     def _get_opt_ordered_requests(self):
 
@@ -1049,44 +1061,6 @@ class Scheduler:
         
         return list(sorted(list(self.waiting) + list(self.running) + list(self.swapped), key=lambda req: -req.aux_model_score))
 
-
-        return list(sorted(list(self.waiting) + list(self.running) + list(self.swapped), key=lambda req: -req.sampling_params.est_tokens))
-
-        
-        wait = list(sorted(list(self.waiting), key=lambda req: -req.sampling_params.est_tokens))
-        run = list(sorted(list(self.running) + list(self.swapped), key=lambda req: req.pscore))
-        ret = []
-        wait_idx = 0
-        run_idx = 0
-        while wait_idx < len(wait) or run_idx < len(run):
-            if wait_idx == len(wait):
-                ret.append(run[run_idx])
-                run_idx += 1
-            elif run_idx == len(run):
-                ret.append(wait[wait_idx])
-                wait_idx += 1
-            else:
-                if -wait[wait_idx].sampling_params.est_tokens < -run[run_idx].sampling_params.est_tokens:
-                    ret.append(wait[wait_idx])
-                    wait_idx += 1
-                else:
-                    ret.append(run[run_idx])
-                    run_idx += 1
-        return ret
-
-
-        if len(self.waiting) > 500: #len(self.running) + len(self.swapped):
-            return list(sorted(list(self.waiting) + list(self.running) + list(self.swapped), key=lambda req: -req.sampling_params.est_tokens))
-        else:
-            return list(self.waiting) + list(sorted(list(self.running) +
-                                               list(self.swapped), key=lambda
-                                               req: req.pscore))
-        
-        ret = list(self.waiting) + list(sorted(list(self.running) +
-                                               list(self.swapped), key=lambda
-                                               req: req.pscore))
-        #return -req.pred_score
-        return ret 
         
     def _update_ltr_priority(self):
         '''
