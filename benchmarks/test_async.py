@@ -1,16 +1,13 @@
+import ray
 import argparse
 import asyncio
+from loguru import logger
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine, AsyncStream
 from vllm.sampling_params import SamplingParams
 
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser = AsyncEngineArgs.add_cli_args(parser)
-    return parser.parse_args()
-
+from typing import List, Tuple
 
 async def iterate_over_output_for_one_prompt(output_iterator: AsyncStream) -> str:
     last_text = ""
@@ -32,16 +29,42 @@ async def generate(engine: AsyncLLMEngine, prompts: list[str], max_tokens: list[
     return list(outputs)
 
 
-async def main():
-    args = parse_args()
-    args.schedule_type = 'predscore'
-    args.enable_chunked_prefill = True
-    engine = AsyncLLMEngine.from_engine_args(AsyncEngineArgs.from_cli_args(args)) #lower score first serve
-    prompts = ["Hi" * 10 for _ in range(1024)]
-    max_tokens = [100 for _ in range(1024)]
-    scores = [1024 - i for i in range(1024)]
-    outputs = await generate(engine, prompts, max_tokens, scores)
+@ray.remote(num_gpus=8)
+class VllmActor:
 
+    def __init__(self) -> None:
+        pass
+
+    def initialize(self) -> None:
+        logger.info("Initializing vLLM")
+        args = AsyncEngineArgs(
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            # model="facebook/opt-125m",
+            tensor_parallel_size=8,
+            max_num_batched_tokens=8192,
+            schedule_type = "predscore",
+            enable_chunked_prefill=True,
+        )
+        self.engine = AsyncLLMEngine.from_engine_args(args)
+        logger.info("vLLM initialized")
+
+    async def generate(
+        self, req_id: str, prompt: str, num_samples: int
+    ) -> List[Tuple[str, float]]:
+        sampling_params = SamplingParams(
+            n=num_samples,
+            temperature=1.0,
+            logprobs=0,
+        )
+        async for oup in self.engine.generate(prompt, sampling_params, req_id, score=512):
+            final_output = oup
+        return [(x.text, x.cumulative_logprob) for x in final_output.outputs]
+
+
+async def main():
+    actor = VllmActor.remote()
+    ray.get(actor.initialize.remote())
+    outputs = ray.get(actor.generate.remote("xxxjgoierjioajf", "Hi", 10))
     print(outputs)
     print("FINISHED")
 
